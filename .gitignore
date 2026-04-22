@@ -15,3 +15,11 @@ node_modules
 .next/
 .DS_Store
 ~$*
+
+# Python/cache artifacts
+__pycache__/
+*.py[codz]
+*.log
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
