@@ -27,7 +27,7 @@ export function ModernHero() {
   }
 
   const handleReportIssue = () => {
-    router.push("/complaint-form")
+    router.push("/complaint")
   }
 
   const handleTrackStatus = () => {
@@ -246,7 +246,7 @@ export function ModernHero() {
               size="sm"
               onClick={() => {
                 setIsMenuOpen(false)
-                router.push("/complaint-form")
+                router.push("/complaint")
               }}
               className="w-full justify-start text-gray-700 hover:bg-gray-100 rounded-lg px-4 py-3"
             >

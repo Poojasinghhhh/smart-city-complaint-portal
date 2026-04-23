@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import Link from "next/link"
 import { createClient } from "@/lib/supabase/server"
 import { Header } from "@/components/header"
 import { ComplaintForm } from "@/components/complaint-form"
@@ -60,7 +61,7 @@ export default async function DashboardPage({
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <Card className="border-border bg-card">
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
@@ -100,6 +101,20 @@ export default async function DashboardPage({
               </div>
             </CardContent>
           </Card>
+          <Link
+            href="/public-complaints"
+            className="border border-border bg-card cursor-pointer hover:bg-orange-50 transition-colors rounded-lg p-6"
+          >
+            <div className="flex items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-orange-100">
+                <PlusCircle className="h-6 w-6 text-orange-600" />
+              </div>
+              <div>
+                <p className="text-2xl font-bold text-foreground">75</p>
+                <p className="text-sm text-muted-foreground">Public Complaints</p>
+              </div>
+            </div>
+          </Link>
         </div>
 
         {/* Tabs */}

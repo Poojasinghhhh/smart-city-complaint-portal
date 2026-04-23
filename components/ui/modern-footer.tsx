@@ -36,7 +36,7 @@ export function ModernFooter() {
       title: "Quick Links",
       links: [
         { name: "Dashboard", href: "/dashboard" },
-        { name: "Report Issue", href: "/complaint-form" },
+        { name: "Report Issue", href: "/complaint" },
         { name: "Track Status", href: "/track" },
         { name: "About Us", href: "/about" },
         { name: "Help Center", href: "/help" }

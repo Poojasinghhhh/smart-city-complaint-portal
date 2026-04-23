@@ -38,11 +38,11 @@ export function ModernNavbar({ userName, userAvatar }: ModernNavbarProps) {
   }
 
   const handleProfile = () => {
-    router.push("/profile")
+    router.push("/dashboard")
   }
 
   const handleNotifications = () => {
-    router.push("/notifications")
+    router.push("/track")
   }
 
   return (
@@ -79,7 +79,7 @@ export function ModernNavbar({ userName, userAvatar }: ModernNavbarProps) {
             <Button 
               variant="ghost" 
               size="sm"
-              onClick={() => router.push("/complaint-form")}
+              onClick={() => router.push("/complaint")}
               className="text-gray-700 hover:text-blue-600 font-medium transition-colors"
             >
               Report Issue
@@ -234,7 +234,7 @@ export function ModernNavbar({ userName, userAvatar }: ModernNavbarProps) {
                 size="sm"
                 onClick={() => {
                   setIsMenuOpen(false)
-                  router.push("/complaint-form")
+                  router.push("/complaint")
                 }}
                 className="w-full justify-start text-gray-700 hover:bg-gray-100 transition-colors"
               >

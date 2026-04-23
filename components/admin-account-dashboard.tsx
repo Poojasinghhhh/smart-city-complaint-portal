@@ -4,19 +4,18 @@ import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { 
   Search, 
   Filter, 
   RefreshCw, 
   Eye, 
-  Edit, 
   Trash2, 
   CheckCircle, 
   XCircle, 
@@ -31,7 +30,11 @@ import {
   TrendingUp,
   BarChart3,
   Users,
-  Download
+  Download,
+  ThumbsUp,
+  ThumbsDown,
+  CheckSquare,
+  XSquare
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -53,18 +56,35 @@ interface Complaint {
   }
 }
 
-interface AdminReply {
-  complaint_id: string
-  message: string
-  admin_id: string
-  created_at: string
-}
-
 const STATUS_CONFIG = {
-  pending: { label: "Pending", color: "bg-yellow-100 text-yellow-600", icon: Clock },
-  in_progress: { label: "In Progress", color: "bg-blue-100 text-blue-600", icon: RefreshCw },
-  resolved: { label: "Resolved", color: "bg-green-100 text-green-600", icon: CheckCircle },
-  rejected: { label: "Rejected", color: "bg-red-100 text-red-600", icon: XCircle }
+  pending: { 
+    label: "Pending", 
+    color: "bg-yellow-100 text-yellow-600", 
+    icon: Clock,
+    description: "Awaiting admin review",
+    nextStatus: "in_progress"
+  },
+  in_progress: { 
+    label: "In Progress", 
+    color: "bg-blue-100 text-blue-600", 
+    icon: RefreshCw,
+    description: "Being processed",
+    nextStatus: "resolved"
+  },
+  resolved: { 
+    label: "Resolved", 
+    color: "bg-green-100 text-green-600", 
+    icon: CheckCircle,
+    description: "Successfully resolved",
+    nextStatus: null
+  },
+  rejected: { 
+    label: "Rejected", 
+    color: "bg-red-100 text-red-600", 
+    icon: XCircle,
+    description: "Complaint rejected",
+    nextStatus: null
+  }
 }
 
 const PRIORITY_CONFIG = {
@@ -74,7 +94,7 @@ const PRIORITY_CONFIG = {
   urgent: { label: "Urgent", color: "bg-red-100 text-red-600" }
 }
 
-export default function AdminDashboardEnhanced({ complaints: initialComplaints }: { complaints: Complaint[] }) {
+export default function AdminAccountDashboard({ complaints: initialComplaints }: { complaints: Complaint[] }) {
   const [complaints, setComplaints] = useState<Complaint[]>(initialComplaints)
   const [filteredComplaints, setFilteredComplaints] = useState<Complaint[]>(initialComplaints)
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null)
@@ -86,7 +106,9 @@ export default function AdminDashboardEnhanced({ complaints: initialComplaints }
   const [priorityFilter, setPriorityFilter] = useState<string>("all")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [replyDialogOpen, setReplyDialogOpen] = useState(false)
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
   const [replyMessage, setReplyMessage] = useState("")
+  const [rejectReason, setRejectReason] = useState("")
   const [stats, setStats] = useState({
     total: 0,
     pending: 0,
@@ -150,7 +172,8 @@ export default function AdminDashboardEnhanced({ complaints: initialComplaints }
           : c
       ))
       
-      setSuccess(`Complaint status updated to ${newStatus}`)
+      const statusConfig = STATUS_CONFIG[newStatus as keyof typeof STATUS_CONFIG]
+      setSuccess(`Complaint ${statusConfig?.label || newStatus} successfully!`)
       
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000)
@@ -158,6 +181,113 @@ export default function AdminDashboardEnhanced({ complaints: initialComplaints }
     } catch (error: any) {
       console.error("Status update error:", error)
       setError(error.message || "Failed to update status")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleApprove = async (complaintId: string) => {
+    await handleStatusUpdate(complaintId, "in_progress")
+    setSelectedComplaint(null)
+  }
+
+  const handleResolve = async (complaintId: string) => {
+    await handleStatusUpdate(complaintId, "resolved")
+    setSelectedComplaint(null)
+  }
+
+  const handleReject = async (complaintId: string) => {
+    if (!rejectReason.trim()) {
+      setError("Please provide a reason for rejection")
+      return
+    }
+    
+    setLoading(true)
+    setError(null)
+    setSuccess(null)
+    
+    try {
+      const supabase = createClient()
+      
+      // Update complaint status
+      const { error } = await supabase
+        .from("complaints")
+        .update({ 
+          status: "rejected",
+          updated_at: new Date().toISOString(),
+          admin_notes: rejectReason.trim()
+        })
+        .eq("id", complaintId)
+      
+      if (error) {
+        throw error
+      }
+      
+      // Update local state
+      setComplaints(prev => prev.map(c => 
+        c.id === complaintId 
+          ? { ...c, status: "rejected", updated_at: new Date().toISOString(), admin_notes: rejectReason.trim() }
+          : c
+      ))
+      
+      setSuccess("Complaint rejected successfully!")
+      setRejectReason("")
+      setRejectDialogOpen(false)
+      setSelectedComplaint(null)
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000)
+      
+    } catch (error: any) {
+      console.error("Reject error:", error)
+      setError(error.message || "Failed to reject complaint")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleReply = async () => {
+    if (!selectedComplaint || !replyMessage.trim()) {
+      setError("Please enter a reply message")
+      return
+    }
+    
+    setLoading(true)
+    setError(null)
+    setSuccess(null)
+    
+    try {
+      const supabase = createClient()
+      
+      // Add reply to database
+      const { error } = await supabase
+        .from("complaint_replies")
+        .insert({
+          complaint_id: selectedComplaint.id,
+          message: replyMessage.trim(),
+          admin_id: "current_admin_id",
+          created_at: new Date().toISOString()
+        })
+      
+      if (error) {
+        throw error
+      }
+      
+      // Update complaint status to in_progress if it was pending
+      if (selectedComplaint.status === "pending") {
+        await handleStatusUpdate(selectedComplaint.id, "in_progress")
+      }
+      
+      setReplyMessage("")
+      setReplyDialogOpen(false)
+      setSuccess("Reply sent successfully!")
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000)
+      
+    } catch (error: any) {
+      console.error("Reply error:", error)
+      setError(error.message || "Failed to send reply")
     } finally {
       setLoading(false)
     }
@@ -188,7 +318,7 @@ export default function AdminDashboardEnhanced({ complaints: initialComplaints }
       setComplaints(prev => prev.filter(c => c.id !== complaintId))
       setSelectedComplaint(null)
       
-      setSuccess("Complaint deleted successfully")
+      setSuccess("Complaint deleted successfully!")
       
       // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000)
@@ -196,53 +326,6 @@ export default function AdminDashboardEnhanced({ complaints: initialComplaints }
     } catch (error: any) {
       console.error("Delete error:", error)
       setError(error.message || "Failed to delete complaint")
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleReply = async () => {
-    if (!selectedComplaint || !replyMessage.trim()) {
-      setError("Please enter a reply message")
-      return
-    }
-    
-    setLoading(true)
-    setError(null)
-    setSuccess(null)
-    
-    try {
-      const supabase = createClient()
-      
-      // Add reply to database (you'd need to create a replies table for this)
-      const { error } = await supabase
-        .from("complaint_replies")
-        .insert({
-          complaint_id: selectedComplaint.id,
-          message: replyMessage.trim(),
-          admin_id: "current_admin_id", // You'd get this from auth
-          created_at: new Date().toISOString()
-        })
-      
-      if (error) {
-        throw error
-      }
-      
-      // Update complaint status to in_progress if it was pending
-      if (selectedComplaint.status === "pending") {
-        await handleStatusUpdate(selectedComplaint.id, "in_progress")
-      }
-      
-      setReplyMessage("")
-      setReplyDialogOpen(false)
-      setSuccess("Reply sent successfully")
-      
-      // Clear success message after 3 seconds
-      setTimeout(() => setSuccess(null), 3000)
-      
-    } catch (error: any) {
-      console.error("Reply error:", error)
-      setError(error.message || "Failed to send reply")
     } finally {
       setLoading(false)
     }
@@ -266,6 +349,11 @@ export default function AdminDashboardEnhanced({ complaints: initialComplaints }
   const getPriorityColor = (priority: string) => {
     const config = PRIORITY_CONFIG[priority as keyof typeof PRIORITY_CONFIG]
     return config ? config.color : "bg-gray-100 text-gray-600"
+  }
+
+  const getStatusIcon = (status: string) => {
+    const config = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG]
+    return config ? config.icon : Clock
   }
 
   const exportComplaints = () => {
@@ -299,9 +387,9 @@ export default function AdminDashboardEnhanced({ complaints: initialComplaints }
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-          <p className="text-gray-600">Manage and respond to citizen complaints</p>
+          <p className="text-gray-600">Manage and review citizen complaints</p>
         </div>
-        <Button onMouseDown={exportComplaints} variant="outline">
+        <Button onClick={exportComplaints} variant="outline">
           <Download className="h-4 w-4 mr-2" />
           Export CSV
         </Button>
@@ -432,21 +520,6 @@ export default function AdminDashboardEnhanced({ complaints: initialComplaints }
                   <SelectItem value="urgent">Urgent</SelectItem>
                 </SelectContent>
               </Select>
-              
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger className="w-32">
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  <SelectItem value="roads">Roads</SelectItem>
-                  <SelectItem value="water">Water</SelectItem>
-                  <SelectItem value="electricity">Electricity</SelectItem>
-                  <SelectItem value="sanitation">Sanitation</SelectItem>
-                  <SelectItem value="streetlight">Streetlight</SelectItem>
-                  <SelectItem value="drainage">Drainage</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
         </CardContent>
@@ -455,7 +528,7 @@ export default function AdminDashboardEnhanced({ complaints: initialComplaints }
       {/* Complaints Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Complaints ({filteredComplaints.length})</CardTitle>
+          <CardTitle>Complaint Management ({filteredComplaints.length})</CardTitle>
         </CardHeader>
         <CardContent>
           {filteredComplaints.length === 0 ? (
@@ -474,7 +547,6 @@ export default function AdminDashboardEnhanced({ complaints: initialComplaints }
                 <thead>
                   <tr className="border-b">
                     <th className="text-left p-2">Title</th>
-                    <th className="text-left p-2">Category</th>
                     <th className="text-left p-2">User</th>
                     <th className="text-left p-2">Status</th>
                     <th className="text-left p-2">Priority</th>
@@ -494,11 +566,6 @@ export default function AdminDashboardEnhanced({ complaints: initialComplaints }
                         </div>
                       </td>
                       <td className="p-2">
-                        <Badge variant="outline" className="capitalize">
-                          {complaint.category}
-                        </Badge>
-                      </td>
-                      <td className="p-2">
                         <div className="flex items-center space-x-2">
                           <User className="h-4 w-4 text-gray-400" />
                           <span className="text-sm">{complaint.profiles.full_name}</span>
@@ -506,6 +573,10 @@ export default function AdminDashboardEnhanced({ complaints: initialComplaints }
                       </td>
                       <td className="p-2">
                         <Badge className={getStatusColor(complaint.status)}>
+                          {(() => {
+                            const Icon = getStatusIcon(complaint.status)
+                            return <Icon className="h-3 w-3 mr-1" />
+                          })()}
                           {STATUS_CONFIG[complaint.status as keyof typeof STATUS_CONFIG]?.label || complaint.status}
                         </Badge>
                       </td>
@@ -527,12 +598,55 @@ export default function AdminDashboardEnhanced({ complaints: initialComplaints }
                             <Eye className="h-4 w-4" />
                           </Button>
                           
+                          {/* Approve Button */}
+                          {complaint.status === "pending" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleApprove(complaint.id)}
+                              disabled={loading}
+                              className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100"
+                            >
+                              <CheckSquare className="h-4 w-4" />
+                            </Button>
+                          )}
+                          
+                          {/* Resolve Button */}
+                          {complaint.status === "in_progress" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleResolve(complaint.id)}
+                              disabled={loading}
+                              className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                            </Button>
+                          )}
+                          
+                          {/* Reject Button */}
+                          {(complaint.status === "pending" || complaint.status === "in_progress") && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedComplaint(complaint)
+                                setRejectDialogOpen(true)
+                              }}
+                              disabled={loading}
+                              className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
+                            >
+                              <XSquare className="h-4 w-4" />
+                            </Button>
+                          )}
+                          
+                          {/* Reply Button */}
                           <Dialog open={replyDialogOpen} onOpenChange={setReplyDialogOpen}>
                             <DialogTrigger asChild>
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onMouseDown={() => setSelectedComplaint(complaint)}
+                                onClick={() => setSelectedComplaint(complaint)}
                               >
                                 <MessageSquare className="h-4 w-4" />
                               </Button>
@@ -560,10 +674,10 @@ export default function AdminDashboardEnhanced({ complaints: initialComplaints }
                                   />
                                 </div>
                                 <div className="flex justify-end space-x-2">
-                                  <Button variant="outline" onMouseDown={() => setReplyDialogOpen(false)}>
+                                  <Button variant="outline" onClick={() => setReplyDialogOpen(false)}>
                                     Cancel
                                   </Button>
-                                  <Button onMouseDown={handleReply} disabled={loading}>
+                                  <Button onClick={handleReply} disabled={loading}>
                                     {loading ? (
                                       <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
                                     ) : (
@@ -576,33 +690,12 @@ export default function AdminDashboardEnhanced({ complaints: initialComplaints }
                             </DialogContent>
                           </Dialog>
                           
-                          {complaint.status === "pending" && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleStatusUpdate(complaint.id, "in_progress")}
-                              disabled={loading}
-                            >
-                              <RefreshCw className="h-4 w-4" />
-                            </Button>
-                          )}
-                          
-                          {complaint.status === "in_progress" && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleStatusUpdate(complaint.id, "resolved")}
-                              disabled={loading}
-                            >
-                              <CheckCircle className="h-4 w-4" />
-                            </Button>
-                          )}
-                          
                           <Button
                             variant="outline"
                             size="sm"
-                            onMouseDown={() => handleDeleteComplaint(complaint.id)}
+                            onClick={() => handleDeleteComplaint(complaint.id)}
                             disabled={loading}
+                            className="bg-red-50 border-red-200 text-red-700 hover:bg-red-100"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -639,6 +732,10 @@ export default function AdminDashboardEnhanced({ complaints: initialComplaints }
                 <div>
                   <Label>Status</Label>
                   <Badge className={getStatusColor(selectedComplaint.status)}>
+                    {(() => {
+                      const Icon = getStatusIcon(selectedComplaint.status)
+                      return <Icon className="h-3 w-3 mr-1" />
+                    })()}
                     {STATUS_CONFIG[selectedComplaint.status as keyof typeof STATUS_CONFIG]?.label || selectedComplaint.status}
                   </Badge>
                 </div>
@@ -704,7 +801,7 @@ export default function AdminDashboardEnhanced({ complaints: initialComplaints }
                         src={image}
                         alt={`Complaint image ${index + 1}`}
                         className="w-full h-24 object-cover rounded cursor-pointer"
-                        onMouseDown={() => window.open(image, '_blank')}
+                        onClick={() => window.open(image, '_blank')}
                       />
                     ))}
                   </div>
@@ -712,30 +809,32 @@ export default function AdminDashboardEnhanced({ complaints: initialComplaints }
               )}
               
               <div className="flex justify-end space-x-2 pt-4 border-t">
-                <Button variant="outline" onMouseDown={() => setSelectedComplaint(null)}>
+                <Button variant="outline" onClick={() => setSelectedComplaint(null)}>
                   Close
                 </Button>
                 
                 {selectedComplaint.status === "pending" && (
                   <Button
-                    onMouseDown={() => {
-                      handleStatusUpdate(selectedComplaint.id, "in_progress")
+                    onClick={() => {
+                      handleApprove(selectedComplaint.id)
                       setSelectedComplaint(null)
                     }}
                     disabled={loading}
+                    className="bg-green-600 hover:bg-green-700"
                   >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Mark In Progress
+                    <CheckSquare className="h-4 w-4 mr-2" />
+                    Approve
                   </Button>
                 )}
                 
                 {selectedComplaint.status === "in_progress" && (
                   <Button
-                    onMouseDown={() => {
-                      handleStatusUpdate(selectedComplaint.id, "resolved")
+                    onClick={() => {
+                      handleResolve(selectedComplaint.id)
                       setSelectedComplaint(null)
                     }}
                     disabled={loading}
+                    className="bg-blue-600 hover:bg-blue-700"
                   >
                     <CheckCircle className="h-4 w-4 mr-2" />
                     Mark Resolved
@@ -746,6 +845,51 @@ export default function AdminDashboardEnhanced({ complaints: initialComplaints }
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Reject Dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reject Complaint</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Complaint</Label>
+              <div className="p-3 bg-gray-50 rounded">
+                <p className="font-medium">{selectedComplaint?.title}</p>
+                <p className="text-sm text-gray-600">{selectedComplaint?.description}</p>
+              </div>
+            </div>
+            <div>
+              <Label htmlFor="reject-reason">Reason for Rejection</Label>
+              <Textarea
+                id="reject-reason"
+                placeholder="Please explain why this complaint is being rejected..."
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                rows={4}
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={() => selectedComplaint && handleReject(selectedComplaint.id)}
+                disabled={loading}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                {loading ? (
+                  <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2" />
+                ) : (
+                  <XSquare className="h-4 w-4 mr-2" />
+                )}
+                Reject Complaint
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

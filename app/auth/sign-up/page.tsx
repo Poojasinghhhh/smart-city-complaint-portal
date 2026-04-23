@@ -17,26 +17,36 @@ export default function SignUpPage() {
   const [fullName, setFullName] = useState("")
   const [phone, setPhone] = useState("")
   const [role, setRole] = useState("citizen")
+  const [adminSecretKey, setAdminSecretKey] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+
+  const ADMIN_SECRET_KEY = "Pooja0123"
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
+    // Validate admin secret key if trying to register as admin
+    if (role === "authority" && adminSecretKey !== ADMIN_SECRET_KEY) {
+      setError("Invalid admin secret key. Please contact administrator for access.")
+      setLoading(false)
+      return
+    }
+
     const supabase = createClient()
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ?? `${window.location.origin}/auth/callback`,
         data: {
           full_name: fullName,
           phone,
           role,
         },
+        emailRedirectTo: undefined, // Disable email confirmation
       },
     })
 
@@ -44,7 +54,23 @@ export default function SignUpPage() {
       setError(error.message)
       setLoading(false)
     } else {
-      router.push("/auth/sign-up-success")
+      // Auto login after successful registration
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (loginError) {
+        setError("Registration successful but login failed. Please try logging in manually.")
+        setLoading(false)
+      } else {
+        // Redirect based on role
+        if (role === "authority") {
+          router.push("/admin")
+        } else {
+          router.push("/dashboard")
+        }
+      }
     }
   }
 
@@ -142,6 +168,26 @@ export default function SignUpPage() {
                     <SelectItem value="authority">Authority Official</SelectItem>
                   </SelectContent>
                 </Select>
+                {role === "authority" && (
+                  <Field>
+                    <FieldLabel htmlFor="adminSecretKey">Admin Secret Key</FieldLabel>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        id="adminSecretKey"
+                        type="password"
+                        placeholder="Enter admin secret key"
+                        value={adminSecretKey}
+                        onChange={(e) => setAdminSecretKey(e.target.value)}
+                        className="pl-10 bg-input border-border text-foreground placeholder:text-muted-foreground"
+                        required={role === "authority"}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Contact administrator for the secret key
+                    </p>
+                  </Field>
+                )}
               </Field>
             </FieldGroup>
           </CardContent>

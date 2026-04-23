@@ -91,11 +91,11 @@ export function EnhancedDashboard({ complaints, userId, submitted }: EnhancedDas
   const categories = [...new Set(complaints.map(c => c.category))]
 
   const handleNewComplaint = () => {
-    router.push("/complaint-form")
+    router.push("/complaint")
   }
 
   const handleViewDetails = (complaintId: string) => {
-    router.push(`/complaints/${complaintId}`)
+    router.push(`/complaint/${complaintId}`)
   }
 
   if (!mounted) return null
@@ -128,12 +128,12 @@ export function EnhancedDashboard({ complaints, userId, submitted }: EnhancedDas
         )}
 
         {/* Statistics Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <AnimatedCard delay={0}>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Total</p>
+                  <p className="text-sm font-medium text-gray-600">Total Complaints</p>
                   <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
                 </div>
                 <div className="bg-blue-100 p-3 rounded-full">
@@ -161,20 +161,6 @@ export function EnhancedDashboard({ complaints, userId, submitted }: EnhancedDas
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">In Progress</p>
-                  <p className="text-2xl font-bold text-blue-600">{stats.inProgress}</p>
-                </div>
-                <div className="bg-blue-100 p-3 rounded-full">
-                  <AlertCircle className="h-6 w-6 text-blue-600" />
-                </div>
-              </div>
-            </CardContent>
-          </AnimatedCard>
-
-          <AnimatedCard delay={300}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
                   <p className="text-sm font-medium text-gray-600">Resolved</p>
                   <p className="text-2xl font-bold text-green-600">{stats.resolved}</p>
                 </div>
@@ -185,15 +171,18 @@ export function EnhancedDashboard({ complaints, userId, submitted }: EnhancedDas
             </CardContent>
           </AnimatedCard>
 
-          <AnimatedCard delay={400}>
-            <CardContent className="p-6">
+          <AnimatedCard delay={300}>
+            <CardContent 
+              className="p-6 cursor-pointer hover:bg-orange-50 transition-colors"
+              onClick={() => router.push('/public-complaints')}
+            >
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium text-gray-600">Rejected</p>
-                  <p className="text-2xl font-bold text-red-600">{stats.rejected}</p>
+                  <p className="text-sm font-medium text-gray-600">Public Complaints</p>
+                  <p className="text-2xl font-bold text-orange-600">75</p>
                 </div>
-                <div className="bg-red-100 p-3 rounded-full">
-                  <XCircle className="h-6 w-6 text-red-600" />
+                <div className="bg-orange-100 p-3 rounded-full">
+                  <Users className="h-6 w-6 text-orange-600" />
                 </div>
               </div>
             </CardContent>

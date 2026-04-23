@@ -27,18 +27,19 @@ import { cn } from "@/lib/utils"
 import type { Profile } from "@/lib/types"
 
 const CATEGORIES = [
-  { icon: Construction, label: "Roads & Infrastructure", description: "Report damaged roads, potholes, and infrastructure issues", color: "bg-orange-100 text-orange-600" },
-  { icon: Droplets, label: "Water Supply", description: "Issues with water supply, leakage, or contamination", color: "bg-blue-100 text-blue-600" },
-  { icon: Zap, label: "Electricity", description: "Power outages, damaged wires, or billing issues", color: "bg-yellow-100 text-yellow-600" },
-  { icon: Trash2, label: "Sanitation", description: "Garbage collection, waste management, cleanliness", color: "bg-green-100 text-green-600" },
-  { icon: Lightbulb, label: "Street Lighting", description: "Non-functional or damaged streetlights", color: "bg-purple-100 text-purple-600" },
-  { icon: Waves, label: "Drainage", description: "Blocked drains, sewage overflow, waterlogging", color: "bg-cyan-100 text-cyan-600" },
+  { icon: Construction, label: "Roads & Infrastructure", description: "Report damaged roads, potholes, and infrastructure issues", color: "bg-orange-400 text-white" },
+  { icon: Droplets, label: "Water Supply", description: "Issues with water supply, leakage, or contamination", color: "bg-blue-400 text-white" },
+  { icon: Zap, label: "Electricity", description: "Power outages, damaged wires, or billing issues", color: "bg-yellow-400 text-white" },
+  { icon: Trash2, label: "Sanitation", description: "Garbage collection, waste management, cleanliness", color: "bg-green-400 text-white" },
+  { icon: Lightbulb, label: "Street Lighting", description: "Non-functional or damaged streetlights", color: "bg-purple-400 text-white" },
+  { icon: Waves, label: "Drainage", description: "Blocked drains, sewage overflow, waterlogging", color: "bg-teal-400 text-white" },
 ]
 
 const STATS = [
-  { icon: TrendingUp, label: "Active Complaints", value: "2,847", description: "Currently being processed", color: "text-blue-600 bg-blue-100" },
-  { icon: CheckCircle, label: "Resolved Today", value: "156", description: "Successfully resolved", color: "text-green-600 bg-green-100" },
-  { icon: Users, label: "Satisfaction Rate", value: "94.2%", description: "Citizen satisfaction", color: "text-purple-600 bg-purple-100" },
+  { icon: TrendingUp, label: "Active Complaints", value: "2,847", description: "Currently being processed", color: "text-blue-100 bg-blue-600" },
+  { icon: CheckCircle, label: "Resolved Today", value: "156", description: "Successfully resolved", color: "text-green-100 bg-green-600" },
+  { icon: Users, label: "Satisfaction Rate", value: "94.2%", description: "Citizen satisfaction", color: "text-purple-100 bg-purple-600" },
+  { icon: MessageSquare, label: "Public Votes", value: "1,234", description: "Community upvotes", color: "text-orange-100 bg-orange-600" },
 ]
 
 const FEATURES = [
@@ -46,19 +47,19 @@ const FEATURES = [
     icon: FileText, 
     title: "Easy Reporting", 
     description: "Submit complaints with photos and location details", 
-    color: "bg-blue-100 text-blue-600" 
+    color: "bg-blue-500 text-blue-50" 
   },
   { 
     icon: MapPin, 
     title: "Real-Time Tracking", 
     description: "Monitor your complaint status from submission to resolution", 
-    color: "bg-green-100 text-green-600" 
+    color: "bg-green-500 text-green-50" 
   },
   { 
     icon: MessageSquare, 
     title: "Community Feedback", 
     description: "Rate and provide feedback on resolved issues", 
-    color: "bg-purple-100 text-purple-600" 
+    color: "bg-purple-500 text-purple-50" 
   },
 ]
 
@@ -74,7 +75,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   {
     icon: FileText,
     label: "File Complaint",
-    href: "/complaint-form",
+    href: "/complaint",
     color: "bg-blue-600 hover:bg-blue-700",
     description: "Submit new complaint"
   },
@@ -92,11 +93,19 @@ const QUICK_ACTIONS: QuickAction[] = [
     color: "bg-purple-600 hover:bg-purple-700",
     description: "Manage complaints"
   },
+  {
+    icon: Users,
+    label: "Public Complaints",
+    href: "/public-complaints",
+    color: "bg-orange-600 hover:bg-orange-700",
+    description: "Browse community issues"
+  },
 ]
 
 export default function ModernHomepage() {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [mounted, setMounted] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -151,7 +160,7 @@ export default function ModernHomepage() {
               <a href="/dashboard" className="text-gray-600 hover:text-blue-600 transition-colors">
                 Dashboard
               </a>
-              <a href="/complaint-form" className="text-gray-600 hover:text-blue-600 transition-colors">
+              <a href="/complaint" className="text-gray-600 hover:text-blue-600 transition-colors">
                 Report Issue
               </a>
               <a href="/track" className="text-gray-600 hover:text-blue-600 transition-colors">
@@ -183,13 +192,31 @@ export default function ModernHomepage() {
 
             {/* Mobile Menu */}
             <div className="md:hidden">
-              <Button variant="ghost" size="sm">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setMobileMenuOpen((prev) => !prev)}
+                aria-label="Toggle navigation menu"
+              >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m0 0h24" />
                 </svg>
               </Button>
             </div>
           </div>
+          {mobileMenuOpen && (
+            <div className="md:hidden border-t border-gray-200 py-3 space-y-2">
+              <a href="/dashboard" className="block text-gray-600 hover:text-blue-600 transition-colors">
+                Dashboard
+              </a>
+              <a href="/complaint" className="block text-gray-600 hover:text-blue-600 transition-colors">
+                Report Issue
+              </a>
+              <a href="/track" className="block text-gray-600 hover:text-blue-600 transition-colors">
+                Track Status
+              </a>
+            </div>
+          )}
         </div>
       </nav>
 
@@ -223,7 +250,7 @@ export default function ModernHomepage() {
               <Button 
                 size="lg" 
                 className="bg-white text-blue-600 hover:bg-gray-100 hover:text-blue-700 border-2 border-white/20"
-                onClick={() => router.push('/complaint-form')}
+                onClick={() => router.push('/complaint')}
               >
                 <FileText className="w-5 h-5 mr-2" />
                 Report Issue
@@ -259,17 +286,17 @@ export default function ModernHomepage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {STATS.map((stat, index) => (
-              <Card key={stat.label} className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105">
+              <Card key={stat.label} className={`border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 ${stat.color}`}>
                 <CardContent className="p-6 text-center">
-                  <div className={`w-16 h-16 rounded-2xl ${stat.color} flex items-center justify-center mb-4 mx-auto`}>
-                    <stat.icon className="w-8 h-8" />
+                  <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center mb-4 mx-auto">
+                    <stat.icon className="w-8 h-8 text-white" />
                   </div>
                   <div className="space-y-2">
-                    <h3 className="text-2xl font-bold text-gray-900">{stat.value}</h3>
-                    <p className="text-sm text-gray-600">{stat.label}</p>
-                    <p className="text-xs text-gray-500">{stat.description}</p>
+                    <h3 className="text-3xl font-bold text-white">{stat.value}</h3>
+                    <p className="text-sm text-white/90">{stat.label}</p>
+                    <p className="text-xs text-white/80">{stat.description}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -292,16 +319,16 @@ export default function ModernHomepage() {
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
             {CATEGORIES.map((category, index) => (
-              <Card key={category.label} className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 cursor-pointer group">
+              <Card key={category.label} className={`border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 cursor-pointer group ${category.color}`}>
                 <CardContent className="p-6 text-center">
-                  <div className={`w-16 h-16 rounded-2xl ${category.color} flex items-center justify-center mb-4 mx-auto`}>
-                    <category.icon className="w-8 h-8" />
+                  <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center mb-4 mx-auto">
+                    <category.icon className="w-8 h-8 text-white" />
                   </div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{category.label}</h3>
-                  <p className="text-sm text-gray-600">{category.description}</p>
+                  <h3 className="text-lg font-bold text-white mb-2">{category.label}</h3>
+                  <p className="text-sm text-white/90">{category.description}</p>
                   <Button 
-                    className="w-full mt-4 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => router.push('/complaint-form')}
+                    className="w-full mt-4 opacity-0 group-hover:opacity-100 transition-opacity bg-white text-gray-800 hover:bg-gray-100"
+                    onClick={() => router.push('/complaint')}
                   >
                     Report {category.label.split(' ')[0]}
                   </Button>
@@ -356,7 +383,7 @@ export default function ModernHomepage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {QUICK_ACTIONS.map((action, index) => (
               <Card key={action.label} className="border-0 shadow-lg hover:shadow-xl transition-all duration-300">
                 <CardContent className="p-6">
@@ -403,7 +430,7 @@ export default function ModernHomepage() {
               <h3 className="text-lg font-bold mb-4">Quick Links</h3>
               <div className="space-y-2">
                 <a href="/dashboard" className="text-gray-400 hover:text-white transition-colors">Dashboard</a>
-                <a href="/complaint-form" className="text-gray-400 hover:text-white transition-colors">Report Issue</a>
+                <a href="/complaint" className="text-gray-400 hover:text-white transition-colors">Report Issue</a>
                 <a href="/track" className="text-gray-400 hover:text-white transition-colors">Track Status</a>
               </div>
             </div>

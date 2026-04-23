@@ -15,6 +15,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [isAdminLogin, setIsAdminLogin] = useState(false)
   const router = useRouter()
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -22,18 +23,28 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
 
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
 
-    if (error) {
-      setError(error.message)
+      if (error) {
+        setError(error.message)
+        return
+      }
+
+      // Redirect based on login type
+      if (isAdminLogin) {
+        router.replace("/admin")
+      } else {
+        router.replace("/dashboard")
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to sign in. Please check your configuration.")
+    } finally {
       setLoading(false)
-    } else {
-      router.push("/dashboard")
-      router.refresh()
     }
   }
 
@@ -48,6 +59,33 @@ export default function LoginPage() {
             <CardTitle className="text-2xl font-bold text-foreground">Smart City Portal</CardTitle>
             <CardDescription className="text-muted-foreground mt-2">
               Sign in to register complaints or manage requests
+            </CardDescription>
+            <div className="flex items-center justify-center space-x-2 mt-4">
+              <button
+                type="button"
+                onClick={() => setIsAdminLogin(false)}
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  !isAdminLogin 
+                    ? "bg-primary text-primary-foreground" 
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                Citizen
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAdminLogin(true)}
+                className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                  isAdminLogin 
+                    ? "bg-primary text-primary-foreground" 
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}
+              >
+                Admin
+              </button>
+            </div>
+            <CardDescription className="text-xs text-muted-foreground mt-2">
+              {isAdminLogin ? "Admin access requires special permissions" : "Register and track your civic complaints"}
             </CardDescription>
           </div>
         </CardHeader>
@@ -94,7 +132,7 @@ export default function LoginPage() {
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? "Signing in..." : "Sign In"}
+              {loading ? "Signing in..." : isAdminLogin ? "Admin Sign In" : "Citizen Sign In"}
             </Button>
             <p className="text-sm text-center text-muted-foreground">
               {"Don't have an account? "}

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/server"
-import AdminDashboardEnhanced from "@/components/admin-dashboard-enhanced"
+import { AdminDashboard } from "@/components/admin-dashboard"
 
 export default async function AdminPage() {
   const supabase = await createClient()
@@ -43,7 +43,7 @@ export default async function AdminPage() {
 
   return (
     <div className="container mx-auto p-6">
-      <AdminDashboardEnhanced complaints={adminComplaints} />
+      <AdminDashboard complaints={adminComplaints} />
     </div>
   )
 }
