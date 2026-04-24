@@ -294,9 +294,9 @@ export default function ModernHomepage() {
                     <stat.icon className="w-8 h-8 text-white" />
                   </div>
                   <div className="space-y-2">
-                    <h3 className="text-3xl font-bold text-white">{stat.value}</h3>
-                    <p className="text-sm text-white/90">{stat.label}</p>
-                    <p className="text-xs text-white/80">{stat.description}</p>
+                    <h3 className="text-4xl font-black">{stat.value}</h3>
+                    <p className="text-sm font-semibold text-gray-800">{stat.label}</p>
+                    <p className="text-xs text-gray-600">{stat.description}</p>
                   </div>
                 </CardContent>
               </Card>
@@ -324,10 +324,10 @@ export default function ModernHomepage() {
                   <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center mb-4 mx-auto">
                     <category.icon className="w-8 h-8 text-white" />
                   </div>
-                  <h3 className="text-lg font-bold text-white mb-2">{category.label}</h3>
-                  <p className="text-sm text-white/90">{category.description}</p>
+                  <h3 className="text-lg font-black mb-2">{category.label}</h3>
+                  <p className="text-sm font-semibold text-gray-700">{category.description}</p>
                   <Button 
-                    className="w-full mt-4 opacity-0 group-hover:opacity-100 transition-opacity bg-white text-gray-800 hover:bg-gray-100"
+                    className="w-full mt-4 opacity-0 group-hover:opacity-100 transition-opacity bg-black text-white hover:bg-gray-800"
                     onClick={() => router.push('/complaint')}
                   >
                     Report {category.label.split(' ')[0]}

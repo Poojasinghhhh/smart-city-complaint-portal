@@ -49,12 +49,154 @@ To create a comprehensive web-based platform for citizens to report civic issues
 - **State Management**: React Hooks (useState, useEffect)
 - **Routing**: Next.js App Router
 
+#### Key Implementation Details
+
+**Next.js App Router Structure:**
+```typescript
+// app/page.tsx - Main homepage with authentication
+export default function HomePage() {
+  const [profile, setProfile] = useState<Profile | null>(null)
+  const [loading, setLoading] = useState(true)
+  const router = useRouter()
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (user) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single()
+        
+        setProfile(data as Profile)
+      }
+    }
+    checkAuth()
+  }, [])
+
+  // Authentication flow and redirection logic
+}
+```
+
+**Component Architecture:**
+```typescript
+// components/ui/modern-homepage.tsx
+type Category = {
+  icon: LucideIcon
+  label: string
+  description: string
+  color: string
+}
+
+const CATEGORIES: Category[] = [
+  { 
+    icon: Construction, 
+    label: "Roads & Infrastructure", 
+    description: "Report damaged roads, potholes, and infrastructure issues", 
+    color: "bg-orange-400 text-white" 
+  },
+  // ... other categories
+]
+
+export default function ModernHomepage() {
+  // Enhanced contrast implementation
+  return (
+    <Card className={`border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 ${category.color}`}>
+      <CardContent className="p-6 text-center">
+        <h3 className="text-lg font-black mb-2">{category.label}</h3>
+        <p className="text-sm font-semibold text-gray-700">{category.description}</p>
+      </CardContent>
+    </Card>
+  )
+}
+```
+
 ### Backend & Database
 - **Database**: Supabase (PostgreSQL)
 - **Authentication**: Supabase Auth
 - **File Storage**: Supabase Storage
 - **Real-time**: Supabase Realtime
 - **API**: RESTful API via Supabase
+
+#### Database Schema Implementation
+
+**Profiles Table:**
+```sql
+CREATE TABLE profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id),
+  full_name TEXT,
+  email TEXT,
+  phone TEXT,
+  role TEXT CHECK (role IN ('citizen', 'authority')),
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**Complaints Table:**
+```sql
+CREATE TABLE complaints (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES profiles(id),
+  ticket_number TEXT UNIQUE,
+  category TEXT,
+  title TEXT,
+  description TEXT,
+  location TEXT,
+  latitude DECIMAL,
+  longitude DECIMAL,
+  address TEXT,
+  priority TEXT CHECK (priority IN ('low', 'medium', 'high')),
+  status TEXT CHECK (status IN ('pending', 'in_progress', 'resolved', 'rejected')),
+  assigned_to TEXT,
+  images TEXT[],
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  reply TEXT
+);
+```
+
+**API Implementation:**
+```typescript
+// lib/supabase/client.ts
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+
+export const createClient = () => createClientComponentClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
+// Complaint CRUD operations
+export const fetchComplaints = async () => {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('complaints')
+    .select(`
+      *,
+      profiles (full_name, email),
+      complaint_upvotes (count)
+    `)
+    .order('created_at', { ascending: false })
+  
+  return { data, error }
+}
+
+export const createComplaint = async (complaintData: any) => {
+  const supabase = createClient()
+  const ticketNumber = `CMP-${Date.now()}`
+  
+  const { data, error } = await supabase
+    .from('complaints')
+    .insert({ ...complaintData, ticket_number: ticketNumber })
+    .select()
+    .single()
+  
+  return { data, error }
+}
+```
 
 ### Development Tools
 - **Package Manager**: npm
@@ -158,8 +300,11 @@ CREATE TABLE complaint_upvotes (
 #### Key Implementation Details
 ```typescript
 // Admin secret key validation
+const ADMIN_SECRET_KEY = "Pooja0123"
+
 if (role === "authority" && adminSecretKey !== ADMIN_SECRET_KEY) {
   setError("Invalid admin secret key. Please contact administrator for access.")
+  setLoading(false)
   return
 }
 
@@ -172,14 +317,82 @@ const { error } = await supabase.auth.signUp({
     emailRedirectTo: undefined, // Disable email confirmation
   },
 })
+
+// Auto-login after registration
+const { error: loginError } = await supabase.auth.signInWithPassword({
+  email,
+  password,
+})
+
+if (loginError) {
+  setError("Registration successful but login failed. Please try logging in manually.")
+} else {
+  // Role-based redirection
+  if (role === "authority") {
+    router.push("/admin")
+  } else {
+    router.push("/dashboard")
+  }
+}
 ```
 
-#### User Login
-- **File**: `/app/auth/login/page.tsx`
+#### Login System Implementation
+```typescript
+// app/auth/login/page.tsx
+const [isAdminLogin, setIsAdminLogin] = useState(false)
+
+// Toggle between Citizen and Admin login
+const toggleLoginType = () => {
+  setIsAdminLogin(!isAdminLogin)
+}
+
+// Dynamic login text
+const buttonText = isAdminLogin ? "Admin Sign In" : "Citizen Sign In"
+const loginDescription = isAdminLogin 
+  ? "Sign in to manage complaints and resolve civic issues" 
+  : "Sign in to register complaints or manage requests"
+
+// Handle login with role redirection
+const handleLogin = async (e: React.FormEvent) => {
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  })
+  
+  if (!error) {
+    if (isAdminLogin) {
+      router.push('/admin')
+    } else {
+      router.push('/dashboard')
+    }
+  }
+}
+```
+
+#### Modern Homepage
+- **File**: `/components/ui/modern-homepage.tsx`
 - **Features**:
-  - Toggle between Citizen and Admin login
-  - Role-based redirection
-  - Secure authentication
+  - Hero section with gradient background
+  - Impact statistics with colorful cards
+  - Category-based complaint reporting
+
+#### Color Scheme Implementation
+```typescript
+const STATS = [
+  { icon: TrendingUp, label: "Active Complaints", value: "2,847", 
+    description: "Currently being processed", color: "bg-blue-600" },
+  { icon: CheckCircle, label: "Resolved Today", value: "156", 
+    description: "Successfully resolved", color: "bg-green-600" },
+  // ... more stats
+]
+
+const CATEGORIES = [
+  { icon: Construction, label: "Roads & Infrastructure", 
+    description: "Report damaged roads, potholes, and infrastructure issues", 
+    color: "bg-orange-400 text-white" },
+  // ... more categories
+]
+```
 
 ### 2. Homepage Design
 
@@ -190,6 +403,64 @@ const { error } = await supabase.auth.signUp({
   - Impact statistics with colorful cards
   - Category-based complaint reporting
   - Feature highlights
+
+#### Color Scheme Implementation
+```typescript
+// Enhanced contrast implementation
+const STATS = [
+  { 
+    icon: TrendingUp, 
+    label: "Active Complaints", value: "2,847", 
+    description: "Currently being processed", 
+    color: "bg-blue-600" 
+  },
+  { icon: CheckCircle, label: "Resolved Today", value: "156", 
+    description: "Successfully resolved", color: "bg-green-600" },
+  // ... more stats
+]
+
+// Category cards with improved contrast
+const CATEGORIES = [
+  { 
+    icon: Construction, 
+    label: "Roads & Infrastructure", 
+    description: "Report damaged roads, potholes, and infrastructure issues", 
+    color: "bg-orange-400 text-white" 
+  },
+  // ... more categories
+]
+
+// Card rendering with proper contrast
+{STATS.map((stat, index) => (
+  <Card key={stat.label} className={`border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 ${stat.color}`}>
+    <CardContent className="p-6 text-center">
+      <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center mb-4 mx-auto">
+        <stat.icon className="w-8 h-8 text-white" />
+      </div>
+      <div className="space-y-2">
+        <h3 className="text-4xl font-black">{stat.value}</h3>
+        <p className="text-sm font-semibold text-gray-800">{stat.label}</p>
+        <p className="text-xs text-gray-600">{stat.description}</p>
+      </div>
+    </CardContent>
+  </Card>
+))}
+```
+
+#### Responsive Design
+```typescript
+// Mobile-first approach with Tailwind breakpoints
+<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+  {/* Category cards */}
+</div>
+
+// Hero section with gradient
+<section className="relative bg-gradient-to-br from-blue-50 to-indigo-100 py-20">
+  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    {/* Hero content */}
+  </div>
+</section>
+```
   - Quick action buttons
   - Responsive navigation
 
@@ -230,6 +501,105 @@ const CATEGORIES = [
   - Real-time status updates
   - Progress visualization
   - Admin replies display
+
+#### Complaint Tracking Implementation
+```typescript
+// Ticket number search with validation
+const [ticketNumber, setTicketNumber] = useState('')
+const [complaint, setComplaint] = useState<Complaint | null>(null)
+const [loading, setLoading] = useState(false)
+
+const handleSearch = async () => {
+  if (!ticketNumber.trim()) {
+    setError('Please enter a ticket number')
+    return
+  }
+  
+  setLoading(true)
+  try {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('complaints')
+      .select(`
+        *,
+        profiles (full_name, email)
+      `)
+      .eq('ticket_number', ticketNumber.trim())
+      .single()
+    
+    if (error) {
+      throw new Error('Complaint not found')
+    }
+    
+    setComplaint(data as Complaint)
+  } catch (error) {
+    setError(error.message)
+  } finally {
+    setLoading(false)
+  }
+}
+
+// Real-time status updates with progress visualization
+const ComplaintStatus = ({ status }: { status: string }) => {
+  const statusConfig = {
+    pending: { color: 'yellow', label: 'Pending', icon: Clock },
+    in_progress: { color: 'blue', label: 'In Progress', icon: Activity },
+    resolved: { color: 'green', label: 'Resolved', icon: CheckCircle },
+    rejected: { color: 'red', label: 'Rejected', icon: XCircle }
+  }
+  
+  const config = statusConfig[status as keyof typeof statusConfig]
+  
+  return (
+    <div className="flex items-center space-x-2">
+      <config.icon className={`w-5 h-5 text-${config.color}`} />
+      <span className={`px-3 py-1 rounded-full text-xs font-semibold bg-${config.color} text-white`}>
+        {config.label}
+      </span>
+    </div>
+  )
+}
+
+// Status timeline component
+const StatusTimeline = ({ complaint }: { complaint: Complaint }) => {
+  const timeline = [
+    { 
+      date: complaint.created_at,
+      title: 'Complaint Submitted',
+      description: 'Your complaint was successfully submitted',
+      icon: FileText,
+      status: 'completed'
+    },
+    {
+      date: complaint.updated_at,
+      title: 'Status Updated',
+      description: `Status changed to ${complaint.status}`,
+      icon: RefreshCw,
+      status: complaint.status
+    }
+  ]
+  
+  return (
+    <div className="relative">
+      <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+      <div className="space-y-4">
+        {timeline.map((item, index) => (
+          <div key={index} className="flex items-start space-x-3">
+            <div className="flex-shrink-0 w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
+              <item.icon className="w-4 h-4 text-white" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm text-gray-600">{item.date}</p>
+              <h4 className="font-semibold">{item.title}</h4>
+              <p className="text-gray-800">{item.description}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+```
 
 ### 4. Admin Dashboard
 
@@ -373,41 +743,39 @@ smart-city-complaint-portal/
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "typescript": "^5.2.2",
-    "tailwindcss": "^3.3.0",
-    "lucide-react": "^0.292.0",
-    "class-variance-authority": "^0.7.0",
-    "clsx": "^2.0.0",
-    "tailwind-merge": "^2.0.0"
-  }
-}
-```
+  ### 6. Development Process
 
----
+#### Project Timeline
+- **Phase 1**: Planning and Architecture Design (Week 1)
+- **Phase 2**: Authentication System Implementation (Week 1-2)
+- **Phase 3**: Core Features Development (Week 2-3)
+- **Phase 4**: UI/UX Enhancement (Week 3)
+- **Phase 5**: Testing and Deployment (Week 4)
 
-## 🔐 Authentication System
+#### Key Milestones
+1. **Database Schema Design**: PostgreSQL tables with proper relationships
+2. **Authentication System**: Supabase integration with role-based access
+3. **Complaint Management**: Full CRUD operations with file uploads
+4. **Admin Dashboard**: Enhanced management interface with real-time updates
+5. **Public Interface**: Community viewing with upvoting system
+6. **Responsive Design**: Mobile-first approach with Tailwind CSS
+7. **Real-time Features**: WebSocket connections for live updates
+8. **Security Implementation**: Secret key validation and secure routing
+9. **Performance Optimization**: Efficient queries and component optimization
+10. **Production Deployment**: Vercel integration with environment variables
 
-### Security Features
-1. **Admin Secret Key**: "Pooja0123" for authority registration
-2. **Role-Based Access**: Different dashboards for citizens and authorities
-3. **Secure Routes**: Protected pages with middleware
-4. **Session Management**: Supabase auth handles sessions
-5. **Password Security**: Hashed passwords via Supabase
-
-### Authentication Flow
+#### Development Workflow
 ```mermaid
 graph TD
-    A[User Visit] --> B{Authenticated?}
-    B -->|No| C[Show Homepage]
-    B -->|Yes| D[Check Role]
-    D -->|Citizen| E[Dashboard]
-    D -->|Authority| F[Admin Panel]
-    C --> G[Login/Register]
-    G --> H[Submit Form]
-    H --> I[Validate Secret Key?]
-    I -->|No| J[Show Error]
-    I -->|Yes| K[Create Account]
-    K --> L[Auto Login]
-    L --> M[Redirect to Dashboard]
+    A[Requirements] --> B[Architecture Design]
+    B --> C[Database Setup]
+    C --> D[Authentication System]
+    D --> E[Core Features]
+    E --> F[UI Enhancement]
+    F --> G[Testing]
+    G --> H[Deployment]
+    A --> I[Security Review]
+    I --> D
 ```
 
 ---
@@ -416,8 +784,109 @@ graph TD
 
 ### UI Component Library
 - **Button**: Consistent button styling with variants
+```typescript
+// components/ui/button.tsx
+import { cn } from "@/lib/utils"
+import { Slot } from "@radix-ui/react-slot"
+
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link'
+  size?: 'default' | 'sm' | 'lg' | 'icon'
+}
+
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant, size, ...props }, ref) => {
+    return (
+      <Slot className={cn(
+        "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+        {
+          "bg-primary text-primary-foreground hover:bg-primary/90": variant === 'default',
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90": variant === 'destructive',
+          // ... other variants
+        },
+        className
+      )}>
+        <Slot ref={ref} {...props} />
+      </Slot>
+    )
+  }
+)
+Button.displayName = "Button"
+```
+
 - **Card**: Flexible card component with different styles
+```typescript
+// components/ui/card.tsx
+import { cn } from "@/lib/utils"
+
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+  className?: string
+}
+
+export const Card = React.forwardRef<HTMLDivElement, CardProps>(
+  ({ className, ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn(
+        "rounded-lg border bg-card text-card-foreground shadow-sm",
+        className
+      )}
+      {...props}
+    />
+  )
+)
+Card.displayName = "Card"
+```
+
 - **Input**: Form inputs with validation
+```typescript
+// components/ui/input.tsx
+import { cn } from "@/lib/utils"
+
+export interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  type?: string
+  placeholder?: string
+}
+
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, type, placeholder, ...props }, ref) => {
+    return (
+      <input
+        type={type}
+        className={cn(
+          "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          className
+        )}
+        placeholder={placeholder}
+        ref={ref}
+        {...props}
+      />
+    )
+  }
+)
+Input.displayName = "Input"
+```
+
+### Custom Components
+- **Modern Homepage**: Enhanced UI with proper contrast
+- **Admin Dashboard**: Full management interface
+- **Running Complaints**: List view with filtering
+- **Enhanced Dashboard**: User dashboard with statistics
+
+#### Component Architecture Pattern
+```typescript
+// Reusable component structure
+interface ComponentProps {
+  children: React.ReactNode
+  className?: string
+}
+
+export const ComponentWrapper: React.FC<ComponentProps> = ({ children, className }) => (
+  <div className={cn("base-component-styles", className)}>
+    {children}
+  </div>
+)
+```
 - **Badge**: Status indicators and labels
 - **Select**: Dropdown selection component
 
@@ -492,13 +961,10 @@ export default function RunningComplaints() {
 // lib/supabase/client.ts
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
-export const createClient = () => createClientComponentClient()
-
-// lib/supabase/server.ts
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
-
-export const createClient = () => createServerComponentClient({ cookies })
+export const createClient = () => createClientComponentClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 ```
 
 ### API Functions
@@ -572,10 +1038,10 @@ npm start
 ## 🧪 Testing & Quality Assurance
 
 ### Testing Strategy
-1. **Component Testing**: React component testing
+1. **Component Testing**: React component testing with Jest
 2. **Integration Testing**: API integration testing
 3. **User Testing**: Manual user experience testing
-4. **Performance Testing**: Load testing for concurrent users
+4. **Performance Testing**: Load testing and optimization
 
 ### Quality Measures
 - **Code Review**: Peer review process
@@ -584,19 +1050,22 @@ npm start
 - **Accessibility**: WCAG compliance
 - **Responsive Design**: Mobile-first approach
 
----
+### Testing Tools
+```bash
+# Unit tests
+npm run test
 
-## 🔧 Challenges & Solutions
+# Build testing
+npm run build
 
-### 1. Server/Client Component Conflicts
-**Problem**: onClick handlers in server components causing errors
-**Solution**: Replaced onClick with onMouseDown for server-safe interactions
+# E2E testing
+npm run test:e2e
 
-### 2. Text Visibility Issues
-**Problem**: Text not visible on card backgrounds
-**Solution**: Implemented proper color contrast with white text on colored backgrounds
+# Performance testing
+npm run test:performance
+```
 
-### 3. Authentication Flow
+### Challenges & Solutions
 **Problem**: Complex role-based authentication requirements
 **Solution**: Implemented secret key validation and auto-login with redirection
 
